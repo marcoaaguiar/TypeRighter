@@ -99,7 +99,7 @@ def scanAndCheck(path = PATH, key = '.tex', words = WORDS):
 
 if __name__ == '__main__':
     # if a path is passed as an argument of the script use it, otherwise use the default
-	if not len(sys.argv) >0:
+	if len(sys.argv) >1:
 		PATH = sys.argv[1]
      #Replace the '\' (windows' default folder separator, to '/' which is python's default)
 	PATH = PATH.replace('\\','/')

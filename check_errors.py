@@ -35,18 +35,18 @@ MATH_MODES = ['align', 'equation', 'multline']
 # ==============================================================================
 # RULES
 # ==============================================================================
-WORDS = []
+DEFAULT_SEARCH_TERMS = []
 
 # Rule #1 - article 'a' followed by a word starting with a vowel
-WORDS += [' a ' + vowel for vowel in VOWELS]
-WORDS += ['A ' + vowel for vowel in VOWELS]
+DEFAULT_SEARCH_TERMS += [' a ' + vowel for vowel in VOWELS]
+DEFAULT_SEARCH_TERMS += ['A ' + vowel for vowel in VOWELS]
 
 # Rule #2 - article 'an' followed by a consonant
-WORDS += [' an ' + vowel for vowel in CONSONANTS]
-WORDS += ['An ' + vowel for vowel in CONSONANTS]
+DEFAULT_SEARCH_TERMS += [' an ' + vowel for vowel in CONSONANTS]
+DEFAULT_SEARCH_TERMS += ['An ' + vowel for vowel in CONSONANTS]
 
 # Repeated words
-WORDS += ['the the ', ' an an ', ' a a ', ' ,', ]
+DEFAULT_SEARCH_TERMS += ['the the ', ' an an ', ' a a ', ' ,', 'the a ', 'the an c']
 
 
 # Math mode
@@ -107,6 +107,16 @@ def check(file, words):
             # Check if ending math mode
             if any([(mode_end in line) for mode_end in map(make_end, MATH_MODES)]) and IGNORE_MATH_MODE:
                 math_mode_on = False
+
+        words_in_line = line.split()
+        last_word = ''
+        for w in words_in_line:
+            if not w.startswith('\\') and not w == '&':
+                if w == last_word:
+                    print('File: {}, line: {} -- Found: "{}" | {}'.format(os.path.basename(fil), k, 'repeated words',
+                                                                          line.replace(w + ' ' + last_word, '[' + w + ' ' + last_word + ']')))
+                    errors_found_in_file = True
+            last_word = w
         k = k + 1
     return errors_found_in_file
 
@@ -123,6 +133,8 @@ parser.add_argument('--process_math_env',
 parser.add_argument('-p', '--path', type=str, action='store', default=os.path.dirname(os.path.abspath(__file__)),
                     help='By default the script runs in the current folder, use -p "PATH" to indicate the path or file '
                          'to be checked.')
+parser.add_argument('-w', '--words', action='store', default=[],
+                    nargs='*', help='Search for words and expressions in the document. Example: -w Lagrange "a NLP"')
 
 if __name__ == '__main__':
     files = []
@@ -131,6 +143,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     PATH = args.path
     IGNORE_MATH_MODE = args.IGNORE_MATH_MODE
+
+    print args.words
+    search_terms = DEFAULT_SEARCH_TERMS + args.words
 
     if PATH.lower().endswith('.tex'):
         files = [PATH]
@@ -141,7 +156,8 @@ if __name__ == '__main__':
         files = list_files_in_path(PATH, '.tex')
     # For each file look for the WORDS
     for fil in files:
-        ERRORS_FOUND = ERRORS_FOUND or check(fil, WORDS)
+        file_has_error = check(fil, search_terms)
+        ERRORS_FOUND = ERRORS_FOUND or file_has_error
 
     # If no error is found report to the user
     if not ERRORS_FOUND:

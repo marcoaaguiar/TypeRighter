@@ -23,11 +23,12 @@ VOWELS_UPPERCASE = 'AEIOU'
 VOWELS = VOWELS_LOWERCASE + VOWELS_UPPERCASE
 
 
-def is_vowel(letter): return letter in VOWELS
+def is_vowel(letter):
+    return letter in VOWELS
 
 
-CONSONANTS_LOWERCASE = [letter for letter in ALPHABET_LOWERCASE if not is_vowel(letter)]
-CONSONANTS_UPPERCASE = [letter for letter in ALPHABET_UPPERCASE if not is_vowel(letter)]
+CONSONANTS_LOWERCASE = [l for l in ALPHABET_LOWERCASE if not is_vowel(l)]
+CONSONANTS_UPPERCASE = [l for l in ALPHABET_UPPERCASE if not is_vowel(l)]
 CONSONANTS = CONSONANTS_LOWERCASE + CONSONANTS_UPPERCASE
 
 MATH_MODES = ['align', 'equation', 'multline']
@@ -114,7 +115,9 @@ def check(file, words):
             if not w.startswith('\\') and not w == '&':
                 if w == last_word:
                     print('File: {}, line: {} -- Found: "{}" | {}'.format(os.path.basename(fil), k, 'repeated words',
-                                                                          line.replace(w + ' ' + last_word, '[' + w + ' ' + last_word + ']')))
+                                                                          line.replace(w + ' ' + last_word,
+                                                                                       '[' + w
+                                                                                       + ' ' + last_word + ']')))
                     errors_found_in_file = True
             last_word = w
         k = k + 1
@@ -144,7 +147,6 @@ if __name__ == '__main__':
     PATH = args.path
     IGNORE_MATH_MODE = args.IGNORE_MATH_MODE
 
-    print args.words
     search_terms = DEFAULT_SEARCH_TERMS + args.words
 
     if PATH.lower().endswith('.tex'):

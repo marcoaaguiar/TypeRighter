@@ -46,8 +46,8 @@ DEFAULT_SEARCH_TERMS += ['A ' + vowel for vowel in VOWELS]
 DEFAULT_SEARCH_TERMS += [' an ' + vowel for vowel in CONSONANTS]
 DEFAULT_SEARCH_TERMS += ['An ' + vowel for vowel in CONSONANTS]
 
-# Repeated words
-DEFAULT_SEARCH_TERMS += ['the the ', ' an an ', ' a a ', ' ,', 'the a ', 'the an c']
+# Misplaced punctuation
+DEFAULT_SEARCH_TERMS += [' .', ' :', '...', ' ,', ' ;', ' ?']
 
 
 # Math mode

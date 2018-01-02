@@ -71,7 +71,7 @@ def rule_article_a(file):
 
                         errors.append({
                             'line_number': error_line_number,
-                            'error_explanation': 'Article "an" followed by a consonant: {}'.format(art + ' ' + word),
+                            'error_explanation': 'Article "a" followed by a vowel: {}'.format(art + ' ' + word),
                             'line': error_line_display
                         })
             last_word = word
@@ -211,7 +211,7 @@ def remove_ignored_latex_environments(file):
         if not inside_env:
             output.append(line)
         else:
-            output.append('')
+            output.append('%')
 
         # Check if ending math mode
         if any([(end_env in line) for end_env in end_envs_list]) and IGNORE_ENVIRONMENT:

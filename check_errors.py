@@ -2,65 +2,175 @@ import argparse
 import os
 import string
 
-PATH = ""
-
 # ==============================================================================
 # OPTIONS
 # ==============================================================================
+import textwrap
 
-IGNORE_MATH_MODE = True
+IGNORE_ENVIRONMENT = True
+IGNORED_LATEX_ENVIRONMENTS = ['align', 'equation', 'multline', 'tabular']
 
 # ==============================================================================
-# ALPHABET AND OTHER DEFINITIONS
+# INITIALIZE VARIABLES
 # ==============================================================================
 
-ALPHABET_LOWERCASE = list(string.ascii_lowercase)
-ALPHABET_UPPERCASE = list(string.ascii_uppercase)
-ALPHABET = ALPHABET_LOWERCASE + ALPHABET_UPPERCASE
+PATH = ""
+RULES_LIST = []
 
-VOWELS_LOWERCASE = 'aeiou'
-VOWELS_UPPERCASE = 'AEIOU'
-VOWELS = VOWELS_LOWERCASE + VOWELS_UPPERCASE
-
-
-def is_vowel(letter):
-    return letter in VOWELS
-
-
-CONSONANTS_LOWERCASE = [l for l in ALPHABET_LOWERCASE if not is_vowel(l)]
-CONSONANTS_UPPERCASE = [l for l in ALPHABET_UPPERCASE if not is_vowel(l)]
-CONSONANTS = CONSONANTS_LOWERCASE + CONSONANTS_UPPERCASE
-
-MATH_MODES = ['align', 'equation', 'multline']
 
 # ==============================================================================
 # RULES
 # ==============================================================================
-DEFAULT_SEARCH_TERMS = []
 
-# Rule #1 - article 'a' followed by a word starting with a vowel
-DEFAULT_SEARCH_TERMS += [' a ' + vowel for vowel in VOWELS]
-DEFAULT_SEARCH_TERMS += ['A ' + vowel for vowel in VOWELS]
+def rule_search_for_match(file, search_terms, error_explanation_generator=None):
+    if error_explanation_generator is None:
+        def error_explanation_generator(case):
+            return 'Found match for: {}'.format(case)
+    errors = []
 
-# Rule #2 - article 'an' followed by a consonant
-DEFAULT_SEARCH_TERMS += [' an ' + vowel for vowel in CONSONANTS]
-DEFAULT_SEARCH_TERMS += ['An ' + vowel for vowel in CONSONANTS]
+    for line_number, line in enumerate(file):
+        #  In case of hard wrapping (line break if number of char greater than some number)
+        #  Create an augmented line (current line + next).
 
-# Misplaced punctuation
-DEFAULT_SEARCH_TERMS += [' .', ' :', '...', ' ,', ' ;', ' ?']
+        for term in search_terms:
+            if term in line:
+                errors.append({
+                    'line_number': line_number + 1,
+                    'error_explanation': error_explanation_generator(term),
+                    'line': line.replace(term, '[' + term + ']')
+                })
+    return errors
 
 
-# Math mode
-def make_begin(mode):
-    return '\\begin{' + mode + '}'
+def rule_article_a(file):
+    # All vowels
+    vowels_lowercase = 'aeiou'
+    vowels_uppercase = 'AEIOU'
+    vowels = tuple(vowels_lowercase + vowels_uppercase)
+
+    # Article a followed by a Vowel
+    articles = ['A', 'a']
+
+    errors = []
+    last_word = ''
+
+    for line_number, line in enumerate(file):
+        words_in_line = line.split()
+        for word_index, word in enumerate(words_in_line):
+            if word.startswith(vowels):
+                for art in articles:
+                    if last_word == art:
+                        if word_index == 0:  # if this line continues the previous line (hard wrap)
+                            error_line_number = (line_number + 1) - 1
+                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word) \
+                                                 + ' <line break> ' + line.replace(word, word + ']')
+                        else:
+                            error_line_number = (line_number + 1)
+                            error_line_display = line.replace(last_word + ' ' + word,
+                                                              '[' + last_word + ' ' + word + ']')
+
+                        errors.append({
+                            'line_number': error_line_number,
+                            'error_explanation': 'Article "an" followed by a consonant: {}'.format(art + ' ' + word),
+                            'line': error_line_display
+                        })
+            last_word = word
+
+    return errors
 
 
-def make_end(mode):
-    return '\\end{' + mode + '}'
+def rule_article_an(file):
+    # Vowels and consonants
+    vowels_lowercase = tuple('aeiou')
+    vowels_uppercase = tuple('AEIOU')
+    vowels = tuple(vowels_lowercase + vowels_uppercase)
+
+    consonants_lowercase = [l for l in string.ascii_lowercase if l not in vowels]
+    consonants_uppercase = [l for l in string.ascii_uppercase if l not in vowels]
+    consonants = tuple(consonants_lowercase + consonants_uppercase)
+
+    articles = ['An', 'an']
+    # Search Terms:
+    errors = []
+    last_word = ''
+
+    for line_number, line in enumerate(file):
+        words_in_line = line.split()
+        for word_index, word in enumerate(words_in_line):
+            if word.startswith(consonants):
+                for art in articles:
+                    if last_word == art:
+                        if word_index == 0:  # if this line continues the previous line (hard wrap)
+                            error_line_number = (line_number + 1) - 1
+                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word) \
+                                                 + ' <line break> ' + line.replace(word, word + ']')
+                        else:
+                            error_line_number = (line_number + 1)
+                            error_line_display = line.replace(last_word + ' ' + word,
+                                                              '[' + last_word + ' ' + word + ']')
+
+                        errors.append({
+                            'line_number': error_line_number,
+                            'error_explanation': 'Article "an" followed by a consonant: {}'.format(art + ' ' + word),
+                            'line': error_line_display
+                        })
+            last_word = word
+
+    return errors
+
+
+def rule_punctuation(file):
+    search_terms = [' .', ' :', '...', ' ,', ' ;', ' ?']
+
+    def error_explanation_generator(case):
+        if case == '...':
+            return 'Punctuation error: "{}" use "\\dots" instead'.format(case)
+        return 'Punctuation error: "{}"'.format(case)
+
+    errors = rule_search_for_match(file, search_terms, error_explanation_generator)
+
+    return errors
+
+
+def rule_duplicate_word(file):
+    words_allowed_to_be_duplicate = ['&']
+
+    errors = []
+    last_word = ''
+
+    for line_number, line in enumerate(file):
+        words_in_line = line.split()
+        for word_index, word in enumerate(words_in_line):
+            if not word.startswith('\\') \
+                    and word not in words_allowed_to_be_duplicate \
+                    and '%' not in word:  # commands can be duplicate too, comments can be ignored
+                if word.lower() == last_word.lower():
+                    if word_index == 0:  # if this line continues the previous line (hard wrap)
+                        error_line_number = (line_number + 1) - 1
+                        error_line_display = file[line_number - 1].replace(last_word,
+                                                                           '[' + last_word) + ' <line break> ' + line.replace(
+                            word, word + ']')
+                    else:
+                        error_line_number = (line_number + 1)
+                        error_line_display = line.replace(last_word + ' ' + word, '[' + last_word + ' ' + word + ']')
+                    errors.append({
+                        'line_number': error_line_number,
+                        'error_explanation': 'Repeated words: {} == {}'.format(last_word, word),
+                        'line': error_line_display
+                    })
+            last_word = word
+
+    return errors
+
+
+RULES_LIST.append(rule_article_a)
+RULES_LIST.append(rule_article_an)
+RULES_LIST.append(rule_punctuation)
+RULES_LIST.append(rule_duplicate_word)
 
 
 # ==============================================================================
-# FUNCTIONS
+# UTILITY
 # ==============================================================================
 
 def list_files_in_path(folder, endswith=None, filtering=None):
@@ -83,45 +193,77 @@ def list_files_in_path(folder, endswith=None, filtering=None):
     return files_list
 
 
-def check(file, words):
-    """
-        look for words in each line of file
-    """
-    global IGNORE_MATH_MODE
-    errors_found_in_file = False
-    if not isinstance(words, list):
-        words = [words]
-    f = open(file, 'r')
-    k = 1
-    math_mode_on = False
-    for line in f:
-        for word in words:
-            # Check if starting math mode
-            if IGNORE_MATH_MODE and any([(mode_begin in line) for mode_begin in map(make_begin, MATH_MODES)]):
-                math_mode_on = True
+def remove_ignored_latex_environments(file):
+    inside_env = False
+    output = []
+    global IGNORE_ENVIRONMENT
+    global IGNORED_LATEX_ENVIRONMENTS
 
-            # Check for rules per se
-            if word in line and not math_mode_on:
-                print('File: {}, line: {} -- Found: "{}" | {}'.format(os.path.basename(fil), k, word,
-                                                                      line.replace(word, '[' + word + ']')))
-                errors_found_in_file = True
-            # Check if ending math mode
-            if any([(mode_end in line) for mode_end in map(make_end, MATH_MODES)]) and IGNORE_MATH_MODE:
-                math_mode_on = False
+    begin_envs_list = ['\\begin{' + env + '}' for env in IGNORED_LATEX_ENVIRONMENTS]
+    end_envs_list = ['\\end{' + env + '}' for env in IGNORED_LATEX_ENVIRONMENTS]
 
-        words_in_line = line.split()
-        last_word = ''
-        for w in words_in_line:
-            if not w.startswith('\\') and not w == '&':
-                if w == last_word:
-                    print('File: {}, line: {} -- Found: "{}" | {}'.format(os.path.basename(fil), k, 'repeated words',
-                                                                          line.replace(w + ' ' + last_word,
-                                                                                       '[' + w
-                                                                                       + ' ' + last_word + ']')))
-                    errors_found_in_file = True
-            last_word = w
-        k = k + 1
-    return errors_found_in_file
+    for line in file:
+        # Check if starting math mode
+        if IGNORE_ENVIRONMENT and any([(begin_env in line) for begin_env in begin_envs_list]):
+            inside_env = True
+
+        # Check for rules per se
+        if not inside_env:
+            output.append(line)
+        else:
+            output.append('')
+
+        # Check if ending math mode
+        if any([(end_env in line) for end_env in end_envs_list]) and IGNORE_ENVIRONMENT:
+            inside_env = False
+
+    return output
+
+
+def check(filename):
+    """
+        look for words in each line of filename
+    """
+    global IGNORE_ENVIRONMENT
+    global RULES_LIST
+
+    file_errors = []
+
+    #  Open file and remove undesired lines
+    file = open(filename, 'r')
+    lines = remove_ignored_latex_environments(file)
+
+    #  Apply the rules
+    for rule in RULES_LIST:
+        file_errors += rule(lines)
+
+    # Sort the errors by line number
+    file_errors.sort(key=lambda x: x['line_number'])
+    found_error = len(file_errors) > 0
+
+    #  If file has any error, print them
+    if found_error:
+        print_file_errors(filename, file_errors)
+
+    return found_error
+
+
+def print_file_errors(filename, errors):
+    base_filename = os.path.basename(filename)
+    header = (' ' + base_filename + ' ').center(40, '=')
+    print(header)
+
+    for error in errors:
+        print('{:20} {}'.format('Line number: ', error['line_number']))
+        print('{:20} {}'.format('Error message: ', error['error_explanation']))
+
+        wrapped_lines = textwrap.wrap(error['line'])
+
+        print('{:20} {}'.format('Line: ', wrapped_lines[0]))
+        for sentence in wrapped_lines[1:]:
+            print('{:20} {}'.format('', sentence))
+
+        print('')
 
 
 # Create parser for the file
@@ -129,13 +271,17 @@ parser = argparse.ArgumentParser(description='Checks errors in TEX files that ar
                                              'Example: "an car", "the the house", "a orange", etc. \n \n'
                                              'Errors found are marked with brackets [], '
                                              'for instance: a[n c]ar, [a o]range.')
-parser.add_argument('--process_math_env',
-                    action='store_false', default=True, dest='IGNORE_MATH_MODE',
-                    help='By default it does not process what is inside math environments '
-                         'that starts with \\begin{...}.')
 parser.add_argument('-p', '--path', type=str, action='store', default=os.path.dirname(os.path.abspath(__file__)),
                     help='By default the script runs in the current folder, use -p "PATH" to indicate the path or file '
                          'to be checked.')
+parser.add_argument('--process_ignored_environments',
+                    action='store_false', default=True, dest='IGNORE_ENVIRONMENT',
+                    help='By default it does not process what is inside of some environments'
+                         'that starts with \\begin{{...\}}. '
+                         'Ignored envs: {}'.format(IGNORED_LATEX_ENVIRONMENTS))
+parser.add_argument('-e', '--extension', action='store', default='.tex',
+                    help='Files extension to be searched on the folders')
+
 parser.add_argument('-w', '--words', action='store', default=[],
                     nargs='*', help='Search for words and expressions in the document. Example: -w Lagrange "a NLP"')
 
@@ -145,24 +291,31 @@ if __name__ == '__main__':
     # if a path is passed as an argument of the script use it, otherwise use the default
     args = parser.parse_args()
     PATH = args.path
-    IGNORE_MATH_MODE = args.IGNORE_MATH_MODE
+    IGNORE_ENVIRONMENT = args.IGNORE_ENVIRONMENT
+    EXTENSION = args.extension
+    EXTRA_SEARCH_TERMS = args.words
 
-    search_terms = DEFAULT_SEARCH_TERMS + args.words
+    RULES_LIST.append(lambda file: rule_search_for_match(file, EXTRA_SEARCH_TERMS))
 
     if PATH.lower().endswith('.tex'):
         files = [PATH]
     else:
         # Replace the '\' (windows' default folder separator, to '/' which is python's default)
         PATH = PATH.replace('\\', '/')
-        # Look for .tex files in PATH subfolders
-        files = list_files_in_path(PATH, '.tex')
-    # For each file look for the WORDS
-    for fil in files:
-        file_has_error = check(fil, search_terms)
-        ERRORS_FOUND = ERRORS_FOUND or file_has_error
+        # Look for .tex files in PATH sub-folders
+        files = list_files_in_path(PATH, EXTENSION)
 
-    # If no error is found report to the user
-    if not ERRORS_FOUND:
-        print("No error found! \n Files checked:")
-        for fil in files:
-            print(fil)
+    # If given PATH has no .tex files report it!
+    if len(files) == 0:
+        print('No files found in PATH: {}'.format(PATH))
+    else:
+        # For each file look for the WORDS
+        for f in files:
+            file_has_error = check(f)
+            ERRORS_FOUND = ERRORS_FOUND or file_has_error
+
+        # If no error is found report to the user
+        if not ERRORS_FOUND:
+            print("No error found! \n Files checked:")
+            for fil in files:
+                print(fil)

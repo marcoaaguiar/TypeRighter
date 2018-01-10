@@ -120,7 +120,7 @@ def rule_article_an(file):
 
 
 def rule_punctuation(file):
-    search_terms = [' .', ' :', '...', ' ,', ' ;', ' ?']
+    search_terms = [' .', ' :', '...', ' ,', ' ;', ' ?', ' !']
 
     def error_explanation_generator(case):
         if case == '...':
@@ -220,6 +220,29 @@ def remove_ignored_latex_environments(file):
     return output
 
 
+def remove_comment_lines(file):
+    output = []
+
+    for line in file:
+        # split the line in words
+        words_in_line = line.split()
+
+        # list of words to be written in the output version of the current line
+        output_line_list = []
+        for word in words_in_line:
+            # if a "%" is identified stop reading the line
+            if word.startswith('%'):
+                output_line_list.append('%')
+                break
+            else:
+                # else add the word to the output
+                output_line_list.append(word)
+
+        output.append(' '.join(output_line_list))
+
+    return output
+
+
 def check(filename):
     """
         look for words in each line of filename
@@ -232,6 +255,7 @@ def check(filename):
     #  Open file and remove undesired lines
     file = open(filename, 'r')
     lines = remove_ignored_latex_environments(file)
+    lines = remove_comment_lines(lines)
 
     #  Apply the rules
     for rule in RULES_LIST:
@@ -266,6 +290,10 @@ def print_file_errors(filename, errors):
         print('')
 
 
+# ==============================================================================
+# PARSER
+# ==============================================================================
+
 # Create parser for the file
 parser = argparse.ArgumentParser(description='Checks errors in TEX files that are not catch by spell checkers.\n \n'
                                              'Example: "an car", "the the house", "a orange", etc. \n \n'
@@ -284,6 +312,10 @@ parser.add_argument('-e', '--extension', action='store', default='.tex',
 
 parser.add_argument('-w', '--words', action='store', default=[],
                     nargs='*', help='Search for words and expressions in the document. Example: -w Lagrange "a NLP"')
+
+# ==============================================================================
+# __MAIN__
+# ==============================================================================
 
 if __name__ == '__main__':
     files = []

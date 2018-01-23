@@ -8,7 +8,9 @@ import string
 import textwrap
 
 IGNORE_ENVIRONMENT = True
-IGNORED_LATEX_ENVIRONMENTS = ['align', 'equation', 'multline', 'tabular']
+IGNORED_LATEX_ENVIRONMENTS = ['align', 'equation', 'multline',
+                              'tabular', 'program', 'algorithm', 'algorithmic', 'algorithm2e']
+IGNORED_LATEX_ENVIRONMENTS = IGNORED_LATEX_ENVIRONMENTS + [e + '*' for env in IGNORED_LATEX_ENVIRONMENTS]
 
 # ==============================================================================
 # INITIALIZE VARIABLES

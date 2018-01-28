@@ -1,6 +1,7 @@
 import argparse
 import os
 import string
+import re
 
 # ==============================================================================
 # OPTIONS
@@ -64,8 +65,10 @@ def rule_article_a(file):
                     if last_word == art:
                         if word_index == 0:  # if this line continues the previous line (hard wrap)
                             error_line_number = (line_number + 1) - 1
-                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word) \
-                                                 + ' <line break> ' + line.replace(word, word + ']')
+
+                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word)
+                            error_line_display += ' <line break> ' + line.replace(word, word + ']')
+
                         else:
                             error_line_number = (line_number + 1)
                             error_line_display = line.replace(last_word + ' ' + word,
@@ -104,8 +107,9 @@ def rule_article_an(file):
                     if last_word == art:
                         if word_index == 0:  # if this line continues the previous line (hard wrap)
                             error_line_number = (line_number + 1) - 1
-                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word) \
-                                                 + ' <line break> ' + line.replace(word, word + ']')
+
+                            error_line_display = file[line_number - 1].replace(last_word, '[' + last_word)
+                            error_line_display += ' <line break> ' + line.replace(word, word + ']')
                         else:
                             error_line_number = (line_number + 1)
                             error_line_display = line.replace(last_word + ' ' + word,
@@ -149,9 +153,8 @@ def rule_duplicate_word(file):
                 if word.lower() == last_word.lower():
                     if word_index == 0:  # if this line continues the previous line (hard wrap)
                         error_line_number = (line_number + 1) - 1
-                        error_line_display = file[line_number - 1].replace(last_word,
-                                                                           '[' + last_word) + ' <line break> ' + line.replace(
-                            word, word + ']')
+                        error_line_display = file[line_number - 1].replace(last_word, '[' + last_word)
+                        error_line_display += ' <line break> ' + line.replace(word, word + ']')
                     else:
                         error_line_number = (line_number + 1)
                         error_line_display = line.replace(last_word + ' ' + word, '[' + last_word + ' ' + word + ']')
@@ -213,7 +216,7 @@ def remove_ignored_latex_environments(file):
         if not inside_env:
             output.append(line)
         else:
-            output.append('%')
+            output.append('%ignored_environment')
 
         # Check if ending math mode
         if any([(end_env in line) for end_env in end_envs_list]) and IGNORE_ENVIRONMENT:
@@ -234,13 +237,23 @@ def remove_comment_lines(file):
         for word in words_in_line:
             # if a "%" is identified stop reading the line
             if word.startswith('%'):
-                output_line_list.append('%')
+                output_line_list.append('%omitted_comment')
                 break
             else:
                 # else add the word to the output
                 output_line_list.append(word)
 
         output.append(' '.join(output_line_list))
+
+    return output
+
+
+def remove_inline_equations(file):
+    output = []
+    pattern = re.compile(r'[$]{1,2}.+[$]{1,2}', re.I)
+
+    for line in file:
+        output.append(pattern.sub('$omitted_inline_eq$', line))
 
     return output
 
@@ -258,6 +271,7 @@ def check(filename):
     file = open(filename, 'r')
     lines = remove_ignored_latex_environments(file)
     lines = remove_comment_lines(lines)
+    lines = remove_inline_equations(lines)
 
     #  Apply the rules
     for rule in RULES_LIST:
@@ -315,6 +329,9 @@ parser.add_argument('-e', '--extension', action='store', default='.tex',
 parser.add_argument('-w', '--words', action='store', default=[],
                     nargs='*', help='Search for words and expressions in the document. Example: -w Lagrange "a NLP"')
 
+parser.add_argument('--display-files', action='store_true', default=False,
+                    help='Print a list of files scanned.', dest='display_files')
+
 # ==============================================================================
 # __MAIN__
 # ==============================================================================
@@ -328,6 +345,7 @@ if __name__ == '__main__':
     IGNORE_ENVIRONMENT = args.IGNORE_ENVIRONMENT
     EXTENSION = args.extension
     EXTRA_SEARCH_TERMS = args.words
+    DISPLAY_FILES = args.display_files
 
     RULES_LIST.append(lambda file: rule_search_for_match(file, EXTRA_SEARCH_TERMS))
 
@@ -350,6 +368,8 @@ if __name__ == '__main__':
 
         # If no error is found report to the user
         if not ERRORS_FOUND:
-            print("No error found! \n Files checked:")
+            print("No error found!")
+        if not ERRORS_FOUND or DISPLAY_FILES:
+            print('Files checked:')
             for fil in files:
                 print(fil)
